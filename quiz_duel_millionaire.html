@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EII Duel - Millionnaire Edition</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        color: white;
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .screen {
+        display: none;
+        width: 100%;
+        height: 100vh;
+        padding: 2rem;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .screen.active {
+        display: flex;
+      }
+
+      /* Écran de démarrage */
+      .start-screen h1 {
+        font-size: 4rem;
+        margin-bottom: 3rem;
+        text-align: center;
+        text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        animation: glow 2s ease-in-out infinite alternate;
+      }
+
+      @keyframes glow {
+        from {
+          text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        to {
+          text-shadow: 0 0 40px rgba(0, 255, 255, 1);
+        }
+      }
+
+      .start-buttons {
+        display: flex;
+        gap: 3rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .start-btn {
+        padding: 3rem 5rem;
+        font-size: 2.5rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s ease;
+      }
+
+      .start-btn:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 15px 60px rgba(102, 126, 234, 0.6);
+      }
+
+      /* Écran de jeu */
+      .game-screen {
+        justify-content: space-between;
+        padding: 1.5rem;
+      }
+
+      .game-header {
+        text-align: center;
+        width: 100%;
+      }
+
+      .game-title {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+      }
+
+      .current-turn {
+        font-size: 1.8rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+      }
+
+      .teams-container {
+        display: flex;
+        gap: 3rem;
+        width: 100%;
+        max-width: 1400px;
+        justify-content: center;
+        align-items: stretch;
+        flex: 1;
+        padding: 2rem 0;
+      }
+
+      .team-panel {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 25px;
+        padding: 2rem;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-around;
+        transition: all 0.3s ease;
+        min-height: 400px;
+      }
+
+      .team-panel.active {
+        border-color: rgba(255, 215, 0, 0.8);
+        box-shadow: 0 0 50px rgba(255, 215, 0, 0.5);
+        transform: scale(1.05);
+      }
+
+      .team-name {
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 1.5rem;
+        text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+      }
+
+      .shots-container {
+        display: flex;
+        gap: 1rem;
+        margin: 1.5rem 0;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .shot {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+      }
+
+      .shot.current {
+        animation: blink 1s ease-in-out infinite;
+        border-color: rgba(255, 215, 0, 1);
+        background: rgba(255, 215, 0, 0.2);
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      .shot.success {
+        background: rgba(0, 255, 0, 0.3);
+        border-color: #00ff00;
+        animation: none;
+      }
+
+      .shot.fail {
+        background: rgba(255, 0, 0, 0.3);
+        border-color: #ff0000;
+        animation: none;
+      }
+
+      .shot.success::after {
+        content: "✓";
+        position: absolute;
+        font-size: 2.5rem;
+        color: #00ff00;
+      }
+
+      .shot.fail::after {
+        content: "✗";
+        position: absolute;
+        font-size: 2.5rem;
+        color: #ff0000;
+      }
+
+      .team-score {
+        font-size: 3.5rem;
+        font-weight: bold;
+        margin-top: 1.5rem;
+        color: #ffd700;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+      }
+
+      /* Boutons de contrôle */
+      .controls {
+        display: flex;
+        gap: 1.5rem;
+        width: 100%;
+        max-width: 1400px;
+      }
+
+      .control-btn {
+        flex: 1;
+        padding: 1.5rem;
+        font-size: 1.6rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .music-btn {
+        background: linear-gradient(135deg, #f39c12, #f1c40f);
+        color: #000;
+      }
+
+      .music-btn.hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(243, 156, 18, 0.6);
+      }
+
+      .music-btn.playing {
+        background: linear-gradient(135deg, #e67e22, #d35400);
+      }
+
+      .correct-btn {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+      }
+
+      .correct-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(46, 204, 113, 0.6);
+      }
+
+      .wrong-btn {
+        background: linear-gradient(135deg, #c0392b, #e74c3c);
+      }
+
+      .wrong-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(231, 76, 60, 0.6);
+      }
+
+      .final-btn {
+        background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      }
+
+      .final-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 30px rgba(155, 89, 182, 0.6);
+      }
+
+      /* Écran de fin */
+      .end-screen h1 {
+        font-size: 5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        animation: glow 2s ease-in-out infinite alternate;
+      }
+
+      .final-score {
+        font-size: 6rem;
+        font-weight: bold;
+        color: #ffd700;
+        text-shadow: 0 0 40px rgba(255, 215, 0, 1);
+        margin-bottom: 3rem;
+      }
+
+      .restart-btn {
+        padding: 2rem 4rem;
+        font-size: 2rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s ease;
+      }
+
+      .restart-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 60px rgba(102, 126, 234, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="screen start-screen active">
+      <h1>🎯 TIRS AU BUT 🎯<br />Millionnaire Edition</h1>
+      <div class="start-buttons">
+        <button class="start-btn" onclick="startGame(1)">EII 1 COMMENCE</button>
+        <button class="start-btn" onclick="startGame(2)">EII 2 COMMENCE</button>
+      </div>
+      <div style="margin-top: 2rem; font-size: 1.2rem; opacity: 0.7">
+        🔊 Cliquez sur n'importe quel bouton pour activer le son
+      </div>
+    </div>
+
+    <div class="screen game-screen">
+      <div class="game-header">
+        <div class="game-title">EII 1 vs EII 2 – Millionnaire Edition</div>
+        <div class="current-turn" id="turnInfo">Au tir : EII 1 – Tir 1/5</div>
+      </div>
+
+      <div class="teams-container">
+        <div class="team-panel" id="team1Panel">
+          <div class="team-name">EII 1</div>
+          <div class="shots-container" id="team1Shots">
+            <div class="shot">1</div>
+            <div class="shot">2</div>
+            <div class="shot">3</div>
+            <div class="shot">4</div>
+            <div class="shot">5</div>
+          </div>
+          <div class="team-score" id="team1Score">0 but</div>
+        </div>
+
+        <div class="team-panel" id="team2Panel">
+          <div class="team-name">EII 2</div>
+          <div class="shots-container" id="team2Shots">
+            <div class="shot">1</div>
+            <div class="shot">2</div>
+            <div class="shot">3</div>
+            <div class="shot">4</div>
+            <div class="shot">5</div>
+          </div>
+          <div class="team-score" id="team2Score">0 but</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button
+          class="control-btn music-btn"
+          id="musicBtn"
+          onclick="toggleSuspense()"
+        >
+          ▶ MUSIQUE SUSPENSE
+        </button>
+        <button class="control-btn final-btn" onclick="playFinalAnswer()">
+          🎯 RÉPONSE FINALE
+        </button>
+        <button class="control-btn correct-btn" onclick="answer(true)">
+          ✓ BONNE RÉPONSE
+        </button>
+        <button class="control-btn wrong-btn" onclick="answer(false)">
+          ✗ MAUVAISE RÉPONSE
+        </button>
+      </div>
+    </div>
+
+    <div class="screen end-screen">
+      <h1 id="winnerText">EII 1 GAGNE 1 MILLION € !</h1>
+      <div class="final-score" id="finalScore">5 – 3</div>
+      <button class="restart-btn" onclick="location.reload()">
+        🔄 RECOMMENCER
+      </button>
+    </div>
+
+    <script>
+      // --- STATE ---
+      const game = {
+        currentTeam: 1,
+        currentShot: 1,
+        team1Score: 0,
+        team2Score: 0,
+        totalShots: 0,
+        musicPlaying: false,
+        currentTimer: null, // To manage delays safely
+        hasStarted: false, // Flag to prevent welcome audio race conditions
+      };
+
+      // --- AUDIO ---
+      const sounds = {
+        welcome: new Audio("welcome.mp3"),
+        transition: new Audio("beginning.mp3"),
+        suspense: new Audio("suspense.mp3"),
+        finalAnswer: new Audio("final.mp3"),
+        correct: new Audio("correct.mp3"),
+        wrong: new Audio("wrong.mp3"),
+        jackpot: new Audio("jackpot.mp3"),
+      };
+
+      // Configure Loops
+      sounds.suspense.loop = true;
+      sounds.welcome.loop = false; // NO LOOP
+
+      // 1. PLAY WELCOME SOUND ON LAUNCH
+      // We use a 'once' listener on window to trigger audio on the first click.
+      // However, if that first click is the "Start Game" button, we must NOT play welcome.
+      window.addEventListener(
+        "click",
+        function initAudio() {
+          // If the game has already started (meaning the user clicked the start button),
+          // DO NOT play the welcome sound.
+          if (game.hasStarted) return;
+
+          if (
+            document.querySelector(".start-screen").classList.contains("active")
+          ) {
+            sounds.welcome.play().catch(() => {
+              /* waiting for interaction */
+            });
+          }
+        },
+        { once: true }
+      );
+
+      // Try auto-play (works if user previously interacted with domain)
+      sounds.welcome.play().catch(() => {});
+
+      // --- CORE AUDIO FUNCTION ---
+      function stopAllAudio() {
+        // Stop all audio sources immediately
+        Object.values(sounds).forEach((sound) => {
+          sound.pause();
+          sound.currentTime = 0;
+        });
+
+        // Clear any pending future events
+        if (game.currentTimer) {
+          clearTimeout(game.currentTimer);
+          game.currentTimer = null;
+        }
+
+        // Visual Reset of Music Button
+        game.musicPlaying = false;
+        const btn = document.getElementById("musicBtn");
+        btn.textContent = "▶ MUSIQUE SUSPENSE";
+        btn.classList.remove("playing");
+      }
+
+      // --- GAME LOGIC ---
+
+      function startGame(startingTeam) {
+        // IMPORTANT: Set this flag first to stop the window-click listener from firing
+        game.hasStarted = true;
+
+        stopAllAudio(); // Immediately silences "Welcome" if it was playing
+
+        // Play Beginning Sound
+        sounds.transition.play();
+
+        // Move to game screen after delay
+        game.currentTimer = setTimeout(() => {
+          document.querySelector(".start-screen").classList.remove("active");
+          document.querySelector(".game-screen").classList.add("active");
+          game.currentTeam = startingTeam;
+          updateDisplay();
+          game.currentTimer = null;
+        }, 3000); // Approx length of beginning.mp3
+      }
+
+      function toggleSuspense() {
+        const btn = document.getElementById("musicBtn");
+
+        if (game.musicPlaying) {
+          sounds.suspense.pause();
+          game.musicPlaying = false;
+          btn.textContent = "▶ MUSIQUE SUSPENSE";
+          btn.classList.remove("playing");
+        } else {
+          // Stop other potential overlapping sounds
+          sounds.finalAnswer.pause();
+          sounds.correct.pause();
+          sounds.wrong.pause();
+
+          sounds.suspense.play();
+          game.musicPlaying = true;
+          btn.textContent = "⏸ ARRÊTER";
+          btn.classList.add("playing");
+        }
+      }
+
+      function playFinalAnswer() {
+        stopAllAudio();
+        sounds.finalAnswer.play();
+      }
+
+      function answer(isCorrect) {
+        stopAllAudio();
+
+        if (isCorrect) {
+          sounds.correct.play();
+        } else {
+          sounds.wrong.play();
+        }
+
+        // Logic for Scoreboard
+        const shotsContainer = document.getElementById(
+          `team${game.currentTeam}Shots`
+        );
+        const shots = shotsContainer.querySelectorAll(".shot");
+        const currentShotIndex = Math.floor(game.totalShots / 2);
+
+        if (currentShotIndex < shots.length) {
+          shots[currentShotIndex].classList.remove("current");
+          if (isCorrect) {
+            shots[currentShotIndex].classList.add("success");
+            game.currentTeam === 1 ? game.team1Score++ : game.team2Score++;
+          } else {
+            shots[currentShotIndex].classList.add("fail");
+          }
+        }
+
+        game.totalShots++;
+        updateScore(1);
+        updateScore(2);
+
+        // Check for Game Over
+        if (game.totalShots >= 10) {
+          game.currentTimer = setTimeout(endGame, 2000);
+          return;
+        }
+
+        // Switch Team after delay
+        game.currentTimer = setTimeout(() => {
+          game.currentTeam = game.currentTeam === 1 ? 2 : 1;
+          updateDisplay();
+          game.currentTimer = null;
+        }, 2500);
+      }
+
+      function endGame() {
+        stopAllAudio();
+        sounds.jackpot.play();
+
+        let winnerText = "";
+        if (game.team1Score > game.team2Score) {
+          winnerText = "EII 1 GAGNE 1 MILLION € !";
+        } else if (game.team2Score > game.team1Score) {
+          winnerText = "EII 2 GAGNE 1 MILLION € !";
+        } else {
+          winnerText = "ÉGALITÉ PARFAITE !";
+        }
+
+        document.getElementById("winnerText").textContent = winnerText;
+        document.getElementById(
+          "finalScore"
+        ).textContent = `${game.team1Score} – ${game.team2Score}`;
+
+        document.querySelector(".game-screen").classList.remove("active");
+        document.querySelector(".end-screen").classList.add("active");
+      }
+
+      // --- UI UPDATES ---
+      function updateDisplay() {
+        const shotNumber = Math.floor((game.totalShots % 10) / 2) + 1;
+        const teamName = game.currentTeam === 1 ? "EII 1" : "EII 2";
+        document.getElementById(
+          "turnInfo"
+        ).textContent = `Au tir : ${teamName} – Tir ${shotNumber}/5`;
+
+        document
+          .getElementById("team1Panel")
+          .classList.toggle("active", game.currentTeam === 1);
+        document
+          .getElementById("team2Panel")
+          .classList.toggle("active", game.currentTeam === 2);
+
+        updateShots(1);
+        updateShots(2);
+      }
+
+      function updateShots(teamNum) {
+        const shotsContainer = document.getElementById(`team${teamNum}Shots`);
+        const shots = shotsContainer.querySelectorAll(".shot");
+
+        shots.forEach((shot, index) => {
+          if (
+            !shot.classList.contains("success") &&
+            !shot.classList.contains("fail")
+          ) {
+            shot.classList.remove("current");
+          }
+
+          if (teamNum === game.currentTeam) {
+            const currentShotIndex = Math.floor(game.totalShots / 2);
+            if (index === currentShotIndex) {
+              shot.classList.add("current");
+            }
+          }
+        });
+      }
+
+      function updateScore(teamNum) {
+        const score = teamNum === 1 ? game.team1Score : game.team2Score;
+        const text =
+          score === 0 ? "0 but" : score === 1 ? "1 but" : `${score} buts`;
+        document.getElementById(`team${teamNum}Score`).textContent = text;
+      }
+    </script>
+  </body>
+</html>
