@@ -72,11 +72,21 @@
         color: white;
         box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
         transition: all 0.3s ease;
+        opacity: 1;
       }
 
-      .start-btn:hover {
+      .start-btn:hover,
+      .start-btn.selected {
+        background: linear-gradient(135deg, #ffd700 0%, #fdb931 100%);
+        color: #0f0c29;
+        box-shadow: 0 0 50px rgba(255, 215, 0, 0.6);
         transform: translateY(-5px) scale(1.05);
-        box-shadow: 0 15px 60px rgba(102, 126, 234, 0.6);
+      }
+
+      .start-btn.dimmed {
+        opacity: 0.3;
+        transform: scale(0.9);
+        pointer-events: none;
       }
 
       /* Écran de jeu */
@@ -132,9 +142,43 @@
       }
 
       .team-panel.active {
-        border-color: rgba(255, 215, 0, 0.8);
-        box-shadow: 0 0 50px rgba(255, 215, 0, 0.5);
+        background: linear-gradient(135deg, #ffd700 0%, #fdb931 100%);
+        color: #0f0c29;
+        border-color: #fff;
+        box-shadow: 0 0 60px rgba(255, 215, 0, 0.6);
         transform: scale(1.05);
+      }
+
+      .team-panel.active .team-name {
+        text-shadow: none;
+      }
+
+      .team-panel.active .team-score {
+        color: #000;
+        text-shadow: none;
+      }
+
+      .team-panel.active .shot {
+        border-color: rgba(0, 0, 0, 0.3);
+        background: rgba(255, 255, 255, 0.4);
+        color: #000;
+      }
+
+      .team-panel.active .shot.current {
+        border-color: #000;
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .team-panel.active .shot.success {
+        background: #2ecc71;
+        border-color: #27ae60;
+        color: white;
+      }
+
+      .team-panel.active .shot.fail {
+        background: #e74c3c;
+        border-color: #c0392b;
+        color: white;
       }
 
       .team-name {
@@ -201,6 +245,11 @@
         color: #00ff00;
       }
 
+      .team-panel.active .shot.success::after,
+      .team-panel.active .shot.fail::after {
+        color: white;
+      }
+
       .shot.fail::after {
         content: "✗";
         position: absolute;
@@ -236,12 +285,17 @@
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
       }
 
+      /* Ajout d'un style pour bouton désactivé si besoin */
+      .control-btn:active {
+        transform: translateY(2px);
+      }
+
       .music-btn {
         background: linear-gradient(135deg, #f39c12, #f1c40f);
         color: #000;
       }
 
-      .music-btn.hover {
+      .music-btn:hover {
         transform: translateY(-3px);
         box-shadow: 0 8px 30px rgba(243, 156, 18, 0.6);
       }
@@ -316,8 +370,12 @@
     <div class="screen start-screen active">
       <h1>🎯 TIRS AU BUT 🎯<br />Millionnaire Edition</h1>
       <div class="start-buttons">
-        <button class="start-btn" onclick="startGame(1)">EII 1 COMMENCE</button>
-        <button class="start-btn" onclick="startGame(2)">EII 2 COMMENCE</button>
+        <button class="start-btn" onclick="startGame(1, this)">
+          EII 1 COMMENCE
+        </button>
+        <button class="start-btn" onclick="startGame(2, this)">
+          EII 2 COMMENCE
+        </button>
       </div>
       <div style="margin-top: 2rem; font-size: 1.2rem; opacity: 0.7">
         🔊 Cliquez sur n'importe quel bouton pour activer le son
@@ -393,8 +451,9 @@
         team2Score: 0,
         totalShots: 0,
         musicPlaying: false,
-        currentTimer: null, // To manage delays safely
-        hasStarted: false, // Flag to prevent welcome audio race conditions
+        currentTimer: null,
+        hasStarted: false,
+        isProcessing: false, // NOUVEAU: Empêche le spam des boutons
       };
 
       // --- AUDIO ---
@@ -408,49 +467,38 @@
         jackpot: new Audio("jackpot.mp3"),
       };
 
-      // Configure Loops
       sounds.suspense.loop = true;
-      sounds.welcome.loop = false; // NO LOOP
+      sounds.welcome.loop = false;
 
       // 1. PLAY WELCOME SOUND ON LAUNCH
-      // We use a 'once' listener on window to trigger audio on the first click.
-      // However, if that first click is the "Start Game" button, we must NOT play welcome.
       window.addEventListener(
         "click",
         function initAudio() {
-          // If the game has already started (meaning the user clicked the start button),
-          // DO NOT play the welcome sound.
           if (game.hasStarted) return;
 
           if (
             document.querySelector(".start-screen").classList.contains("active")
           ) {
-            sounds.welcome.play().catch(() => {
-              /* waiting for interaction */
-            });
+            sounds.welcome.play().catch(() => {});
           }
         },
         { once: true }
       );
 
-      // Try auto-play (works if user previously interacted with domain)
       sounds.welcome.play().catch(() => {});
 
       // --- CORE AUDIO FUNCTION ---
       function stopAllAudio() {
-        // Stop all audio sources immediately
         Object.values(sounds).forEach((sound) => {
           sound.pause();
           sound.currentTime = 0;
         });
 
-        // Clear any pending future events
         if (game.currentTimer) {
           clearTimeout(game.currentTimer);
           game.currentTimer = null;
         }
 
-        // Visual Reset of Music Button
         game.musicPlaying = false;
         const btn = document.getElementById("musicBtn");
         btn.textContent = "▶ MUSIQUE SUSPENSE";
@@ -459,26 +507,38 @@
 
       // --- GAME LOGIC ---
 
-      function startGame(startingTeam) {
-        // IMPORTANT: Set this flag first to stop the window-click listener from firing
+      function startGame(startingTeam, clickedBtn) {
+        // Empêche de cliquer deux fois sur le bouton start
+        if (game.hasStarted) return;
         game.hasStarted = true;
 
-        stopAllAudio(); // Immediately silences "Welcome" if it was playing
+        stopAllAudio();
 
-        // Play Beginning Sound
+        // Styles des boutons
+        const allBtns = document.querySelectorAll(".start-btn");
+        allBtns.forEach((btn) => {
+          if (btn === clickedBtn) {
+            btn.classList.add("selected");
+          } else {
+            btn.classList.add("dimmed");
+          }
+        });
+
         sounds.transition.play();
 
-        // Move to game screen after delay
         game.currentTimer = setTimeout(() => {
           document.querySelector(".start-screen").classList.remove("active");
           document.querySelector(".game-screen").classList.add("active");
           game.currentTeam = startingTeam;
           updateDisplay();
           game.currentTimer = null;
-        }, 3000); // Approx length of beginning.mp3
+        }, 3000);
       }
 
       function toggleSuspense() {
+        // Si une action est en cours (réponse validée), on ne change pas la musique
+        if (game.isProcessing) return;
+
         const btn = document.getElementById("musicBtn");
 
         if (game.musicPlaying) {
@@ -487,7 +547,6 @@
           btn.textContent = "▶ MUSIQUE SUSPENSE";
           btn.classList.remove("playing");
         } else {
-          // Stop other potential overlapping sounds
           sounds.finalAnswer.pause();
           sounds.correct.pause();
           sounds.wrong.pause();
@@ -500,20 +559,30 @@
       }
 
       function playFinalAnswer() {
+        // Si on a déjà validé une réponse, on empêche de jouer ce son par dessus
+        if (game.isProcessing) return;
+
         stopAllAudio();
         sounds.finalAnswer.play();
       }
 
       function answer(isCorrect) {
+        // 1. SÉCURITÉ : Si le jeu traite déjà une réponse, on ignore le clic (anti-spam)
+        if (game.isProcessing) return;
+
+        // 2. VERROUILLAGE
+        game.isProcessing = true;
+
         stopAllAudio();
 
+        // 3. FEEDBACK IMMÉDIAT (Son + Bulle Visuelle uniquement)
         if (isCorrect) {
           sounds.correct.play();
         } else {
           sounds.wrong.play();
         }
 
-        // Logic for Scoreboard
+        // Mise à jour visuelle de la bulle (rouge/verte) TOUT DE SUITE
         const shotsContainer = document.getElementById(
           `team${game.currentTeam}Shots`
         );
@@ -524,26 +593,37 @@
           shots[currentShotIndex].classList.remove("current");
           if (isCorrect) {
             shots[currentShotIndex].classList.add("success");
-            game.currentTeam === 1 ? game.team1Score++ : game.team2Score++;
           } else {
             shots[currentShotIndex].classList.add("fail");
           }
         }
 
-        game.totalShots++;
-        updateScore(1);
-        updateScore(2);
-
-        // Check for Game Over
-        if (game.totalShots >= 10) {
-          game.currentTimer = setTimeout(endGame, 2000);
-          return;
-        }
-
-        // Switch Team after delay
+        // 4. ACTIONS DIFFÉRÉES (Score + Changement Tour après 2.5s)
         game.currentTimer = setTimeout(() => {
+          // Mise à jour du score SEULEMENT MAINTENANT
+          if (isCorrect) {
+            game.currentTeam === 1 ? game.team1Score++ : game.team2Score++;
+          }
+
+          // Incrémentation compteur total
+          game.totalShots++;
+
+          // Mise à jour affichage scores
+          updateScore(1);
+          updateScore(2);
+
+          // Vérification fin de jeu
+          if (game.totalShots >= 10) {
+            endGame();
+            return;
+          }
+
+          // Changement d'équipe
           game.currentTeam = game.currentTeam === 1 ? 2 : 1;
           updateDisplay();
+
+          // 5. DÉVERROUILLAGE
+          game.isProcessing = false;
           game.currentTimer = null;
         }, 2500);
       }
@@ -554,9 +634,9 @@
 
         let winnerText = "";
         if (game.team1Score > game.team2Score) {
-          winnerText = "EII 1 GAGNE 1 MILLION € !";
+          winnerText = "EII 1 GAGNE 1 MILLION points / 20 !";
         } else if (game.team2Score > game.team1Score) {
-          winnerText = "EII 2 GAGNE 1 MILLION € !";
+          winnerText = "EII 2 GAGNE 1 MILLION points / 20 !";
         } else {
           winnerText = "ÉGALITÉ PARFAITE !";
         }
